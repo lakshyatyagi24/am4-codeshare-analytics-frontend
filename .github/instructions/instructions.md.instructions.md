@@ -12,3 +12,34 @@ applyTo: '**'
 - When optimizing, explain improvements briefly in comments.
 
 we have 1 main alliance with name codeshare, to have a better visibility we have created 4 alliance codeshare, exoshare, thermoshare, stratoshare
+
+we will have a single api with mentioned api response
+
+[
+  {
+    "entry_date": "2025-09-02",
+    "player_name": "John Doe",
+    "share": 15.75,
+    "contributed": 20000,
+    "contribution_per_day": 500,
+    "joined": "2024-03-12",
+    "flights": 120,
+    "online": true,
+    "season": "Summer 2025",
+    "ytd_average": 230,
+    "alliance_name": "SkyRiders"
+  },
+  {
+    "entry_date": "2025-09-02",
+    "player_name": "Jane Smith",
+    "share": 20.5,
+    "contributed": 30000,
+    "contribution_per_day": 800,
+    "joined": "2023-11-20",
+    "flights": 210,
+    "online": false,
+    "season": "Summer 2025",
+    "ytd_average": 315,
+    "alliance_name": "FlightMasters"
+  }
+]
