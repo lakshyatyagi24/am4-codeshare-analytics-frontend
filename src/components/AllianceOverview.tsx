@@ -1,269 +1,181 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AllianceData } from '../types';
-import type { AllianceOverview } from '../types';
+import { useState } from 'react';
+import type { DrilldownData, ContributorData, AnomalyAlert, AuditLog, HeatmapData, TimeFilter, NormalizationOptions, AllianceDetailView } from '../types';
+import MetricDrilldownModal from './MetricDrilldownModal';
+import AllianceDetailModal from './AllianceDetailModal';
 
-// Mock data - replace with actual API call
-const mockData: AllianceData[] = [
-  {
-    entry_date: '2025-09-02',
-    player_name: 'John Doe',
-    share: 15.75,
-    contributed: 20000,
-    contribution_per_day: 500,
-    joined: '2024-03-12',
-    flights: 120,
-    online: true,
-    season: 'Summer 2025',
-    ytd_average: 230,
-    alliance_name: 'codeshare'
-  },
-  {
-    entry_date: '2025-09-02',
-    player_name: 'Jane Smith',
-    share: 20.5,
-    contributed: 30000,
-    contribution_per_day: 800,
-    joined: '2023-11-20',
-    flights: 210,
-    online: false,
-    season: 'Summer 2025',
-    ytd_average: 315,
-    alliance_name: 'codeshare'
-  },
-  {
-    entry_date: '2025-09-02',
-    player_name: 'Bob Wilson',
-    share: 18.2,
-    contributed: 25000,
-    contribution_per_day: 600,
-    joined: '2024-01-15',
-    flights: 180,
-    online: true,
-    season: 'Summer 2025',
-    ytd_average: 280,
-    alliance_name: 'exoshare'
-  },
-  {
-    entry_date: '2025-09-02',
-    player_name: 'Alice Brown',
-    share: 22.1,
-    contributed: 35000,
-    contribution_per_day: 900,
-    joined: '2023-08-10',
-    flights: 250,
-    online: true,
-    season: 'Summer 2025',
-    ytd_average: 320,
-    alliance_name: 'exoshare'
-  },
-  {
-    entry_date: '2025-09-02',
-    player_name: 'Charlie Davis',
-    share: 16.8,
-    contributed: 22000,
-    contribution_per_day: 550,
-    joined: '2024-05-20',
-    flights: 150,
-    online: false,
-    season: 'Summer 2025',
-    ytd_average: 260,
-    alliance_name: 'thermoshare'
-  },
-  {
-    entry_date: '2025-09-02',
-    player_name: 'Diana Evans',
-    share: 19.3,
-    contributed: 28000,
-    contribution_per_day: 700,
-    joined: '2023-12-05',
-    flights: 200,
-    online: true,
-    season: 'Summer 2025',
-    ytd_average: 290,
-    alliance_name: 'stratoshare'
-  }
-];
+// Import new modular components
+import { SummarySection } from './SummarySection';
+import { TrendsChart } from './TrendsChart';
+import { AllianceGrid } from './AllianceGrid';
+import { ShareDistributionChart } from './ShareDistributionChart';
+import { EnhancedFeaturesGrid } from './EnhancedFeaturesGrid';
+import { AlertsSection } from './AlertsSection';
+import { AuditSection } from './AuditSection';
+import { FiltersSection } from './FiltersSection';
+import { ExportSection } from './ExportSection';
+
+// Import custom hook
+import { useAllianceData } from '../hooks/useAllianceData';
+
+// Import mock data
+import {
+  mockAllianceData
+} from '../lib/mockData';
 
 export default function AllianceOverview() {
-  const [data, setData] = useState<AllianceOverview[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use custom hook for data processing
+  const { data, trendData, loading } = useAllianceData(mockAllianceData);
 
-  useEffect(() => {
-    // Simulate API call
-    const fetchData = async () => {
-      // In real app: const response = await fetch('/api/alliance-data');
-      // const apiData: AllianceData[] = await response.json();
+  // New state for enhanced features
+  const [contributorData] = useState<ContributorData[]>([]);
+  const [anomalyAlerts, setAnomalyAlerts] = useState<AnomalyAlert[]>([]);
+  const [auditLogs] = useState<AuditLog[]>([]);
+  const [heatmapData] = useState<HeatmapData[]>([]);
 
-      const apiData = mockData;
+  // Modal states
+  const [drilldownModal, setDrilldownModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    data: DrilldownData[];
+  }>({
+    isOpen: false,
+    title: '',
+    data: []
+  });
 
-      // Group by alliance
-      const allianceGroups = apiData.reduce((acc, item) => {
-        if (!acc[item.alliance_name]) {
-          acc[item.alliance_name] = [];
-        }
-        acc[item.alliance_name].push(item);
-        return acc;
-      }, {} as Record<string, AllianceData[]>);
+  const [allianceDetailModal, setAllianceDetailModal] = useState<{
+    isOpen: boolean;
+    alliance: AllianceDetailView | null;
+  }>({
+    isOpen: false,
+    alliance: null
+  });
 
-      // Compute overview for each alliance
-      const overview: AllianceOverview[] = Object.entries(allianceGroups).map(([alliance, items]) => {
-        const total_flights = items.reduce((sum, item) => sum + item.flights, 0);
-        const total_contributed = items.reduce((sum, item) => sum + item.contributed, 0);
-        const active_partners = items.filter(item => item.online).length;
-        const avg_share = items.reduce((sum, item) => sum + item.share, 0) / items.length;
-        const avg_ytd = items.reduce((sum, item) => sum + item.ytd_average, 0) / items.length;
+  // Filter states
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>({ period: 'month' });
+  const [normalization, setNormalization] = useState<NormalizationOptions>({ perPlayer: false, perFlight: false, perDay: false });
 
-        // For growth, assuming previous month data is 90% of current (mock)
-        const month_growth_flights = 10; // +10%
-        const month_growth_contributed = 12; // +12%
-
-        // Engagement score based on avg ytd and active partners
-        const engagement_score = (avg_ytd / 300) * 100 + (active_partners / items.length) * 20;
-
-        return {
-          alliance_name: alliance,
-          total_flights,
-          total_contributed,
-          active_partners,
-          avg_share,
-          avg_ytd,
-          month_growth_flights,
-          month_growth_contributed,
-          engagement_score
-        };
-      });
-
-      setData(overview);
-      setLoading(false);
+  const handleAllianceClick = (allianceName: string) => {
+    const mockAllianceDetail: AllianceDetailView = {
+      alliance_name: allianceName,
+      top_contributors: [],
+      new_joiners: [],
+      inactive_users: [],
+      retention_rate: 85,
+      cohort_data: [],
+      recent_activity: [
+        { alliance_name: allianceName, date: '2024-01-15', value: 1000, change: 2.5, trend: 'up' },
+        { alliance_name: allianceName, date: '2024-01-14', value: 5000, change: -1.2, trend: 'down' },
+      ]
     };
+    setAllianceDetailModal({
+      isOpen: true,
+      alliance: mockAllianceDetail
+    });
+  };
 
-    fetchData();
-  }, []);
+  const handleCloseDrilldown = () => {
+    setDrilldownModal({ isOpen: false, title: '', data: [] });
+  };
 
-  // Calculate totals for summary
-  const totalFlights = data.reduce((sum, alliance) => sum + alliance.total_flights, 0);
-  const totalRevenue = data.reduce((sum, alliance) => sum + alliance.total_contributed, 0);
-  const totalActivePartners = data.reduce((sum, alliance) => sum + alliance.active_partners, 0);
-  const avgEngagement = data.length > 0 ? data.reduce((sum, alliance) => sum + alliance.engagement_score, 0) / data.length : 0;
+  const handleCloseAllianceDetail = () => {
+    setAllianceDetailModal({ isOpen: false, alliance: null });
+  };
+
+  const handleDismissAlert = (alertId: string) => {
+    setAnomalyAlerts(prev => prev.filter(alert => alert.id !== alertId));
+  };
+
+  const handleTimeFilterChange = (filter: TimeFilter) => {
+    setTimeFilter(filter);
+  };
+
+  const handleNormalizationChange = (option: NormalizationOptions) => {
+    setNormalization(option);
+  };
+
+  const handleExport = (options: { format: 'csv' | 'png'; includeCharts: boolean; includeTables: boolean; dateRange: TimeFilter; selectedAlliances: string[] }) => {
+    console.log(`Exporting ${options.format} for alliances:`, options.selectedAlliances);
+    // Mock export functionality
+  };
 
   if (loading) {
-    return (
-      <div className="panel loading-panel">
-        <div className="loading-spinner"></div>
-        <div>Loading Alliance Analytics...</div>
-      </div>
-    );
+    return <div className="loading">Loading alliance data...</div>;
   }
+
+  // Calculate summary metrics
+  const totalFlights = data.reduce((sum, alliance) => sum + alliance.total_contributed, 0);
+  const totalRevenue = data.reduce((sum, alliance) => sum + alliance.mtd_contributed, 0);
+  const totalPlayers = data.reduce((sum, alliance) => sum + alliance.total_players, 0);
+  const avgEngagement = data.reduce((sum, alliance) => sum + alliance.engagement_score, 0) / data.length;
 
   return (
     <div className="alliance-analytics-container">
-      {/* Summary Section */}
-      <div className="summary-section">
-        <div className="summary-grid">
-          <div className="summary-card">
-            <div className="summary-icon">✈️</div>
-            <div className="summary-content">
-              <div className="summary-value">{totalFlights.toLocaleString()}</div>
-              <div className="summary-label">Total Flights</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">💰</div>
-            <div className="summary-content">
-              <div className="summary-value">${totalRevenue.toLocaleString()}</div>
-              <div className="summary-label">Total Revenue</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">👥</div>
-            <div className="summary-content">
-              <div className="summary-value">{totalActivePartners}</div>
-              <div className="summary-label">Active Partners</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">📈</div>
-            <div className="summary-content">
-              <div className="summary-value">{avgEngagement.toFixed(1)}</div>
-              <div className="summary-label">Avg Engagement</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SummarySection
+        totalFlights={totalFlights}
+        totalRevenue={totalRevenue}
+        totalPlayers={totalPlayers}
+        avgEngagement={avgEngagement}
+      />
 
-      {/* Alliance Details */}
-      <div className="alliance-details-section">
-        <h2 className="section-title">Alliance Performance</h2>
-        <div className="alliance-grid">
-          {data.map((alliance) => (
-            <div key={alliance.alliance_name} className="alliance-card">
-              <div className="alliance-header">
-                <h3 className="alliance-name">{alliance.alliance_name.toUpperCase()}</h3>
-                <div className="alliance-badge">
-                  {alliance.engagement_score > 80 ? '🏆' : alliance.engagement_score > 60 ? '⭐' : '📊'}
-                </div>
-              </div>
+      <TrendsChart
+        trendData={trendData}
+        data={data}
+      />
 
-              <div className="alliance-metrics">
-                <div className="metric-group">
-                  <div className="metric-item">
-                    <div className="metric-icon">🛫</div>
-                    <div className="metric-content">
-                      <div className="metric-value">{alliance.total_flights}</div>
-                      <div className="metric-label">Flights</div>
-                      <div className={`metric-change ${alliance.month_growth_flights >= 0 ? 'positive' : 'negative'}`}>
-                        {alliance.month_growth_flights >= 0 ? '+' : ''}{alliance.month_growth_flights}%
-                      </div>
-                    </div>
-                  </div>
+      <AllianceGrid
+        data={data}
+        onAllianceClick={handleAllianceClick}
+      />
 
-                  <div className="metric-item">
-                    <div className="metric-icon">💵</div>
-                    <div className="metric-content">
-                      <div className="metric-value">${alliance.total_contributed.toLocaleString()}</div>
-                      <div className="metric-label">Revenue</div>
-                      <div className={`metric-change ${alliance.month_growth_contributed >= 0 ? 'positive' : 'negative'}`}>
-                        {alliance.month_growth_contributed >= 0 ? '+' : ''}{alliance.month_growth_contributed}%
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      <ShareDistributionChart
+        data={data}
+      />
 
-                <div className="metric-group">
-                  <div className="metric-item">
-                    <div className="metric-icon">👤</div>
-                    <div className="metric-content">
-                      <div className="metric-value">{alliance.active_partners}</div>
-                      <div className="metric-label">Active</div>
-                    </div>
-                  </div>
+      <EnhancedFeaturesGrid
+        contributorData={contributorData}
+        heatmapData={heatmapData}
+      />
 
-                  <div className="metric-item">
-                    <div className="metric-icon">📊</div>
-                    <div className="metric-content">
-                      <div className="metric-value">{alliance.avg_share.toFixed(1)}%</div>
-                      <div className="metric-label">Avg Share</div>
-                    </div>
-                  </div>
-                </div>
+      <AlertsSection
+        alerts={anomalyAlerts}
+        onDismissAlert={handleDismissAlert}
+      />
 
-                <div className="engagement-bar">
-                  <div className="engagement-label">Engagement Score</div>
-                  <div className="engagement-progress">
-                    <div
-                      className="engagement-fill"
-                      style={{ width: `${Math.min(alliance.engagement_score, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="engagement-value">{alliance.engagement_score.toFixed(1)}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AuditSection
+        logs={auditLogs}
+      />
+
+      <FiltersSection
+        onTimeFilterChange={handleTimeFilterChange}
+        onNormalizationChange={handleNormalizationChange}
+        currentTimeFilter={timeFilter}
+        currentNormalization={normalization}
+      />
+
+      <ExportSection
+        onExport={handleExport}
+        availableAlliances={data.map(a => a.alliance_name)}
+      />
+
+      {/* Drilldown Modal */}
+      <MetricDrilldownModal
+        isOpen={drilldownModal.isOpen}
+        onClose={handleCloseDrilldown}
+        title={drilldownModal.title}
+        data={drilldownModal.data}
+      />
+
+      {/* Alliance Detail Modal */}
+      {allianceDetailModal.alliance && (
+        <AllianceDetailModal
+          alliance={allianceDetailModal.alliance}
+          isOpen={allianceDetailModal.isOpen}
+          onClose={handleCloseAllianceDetail}
+        />
+      )}
     </div>
   );
 }
